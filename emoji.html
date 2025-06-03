@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Emoji Chat App</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: space-around;
+      padding: 30px;
+      background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+      min-height: 100vh;
+    }
+
+    .chat-box {
+      width: 45%;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    h2 {
+      text-align: center;
+      margin-top: 0;
+      color: #34495e;
+    }
+
+    textarea {
+      width: 100%;
+      height: 60px;
+      padding: 12px;
+      font-size: 14px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      resize: none;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .decrypt-btn {
+      margin-top: 8px;
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      color: #fff;
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 6px;
+    }
+
+    .messages {
+      margin-top: 15px;
+      height: 280px;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.6);
+      padding: 12px;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 20px;
+      word-wrap: break-word;
+      transition: 0.3s;
+    }
+
+    .msg:hover {
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .sent {
+      align-self: flex-end;
+      background: #daf5dc;
+      border-bottom-right-radius: 4px;
+    }
+
+    .received {
+      align-self: flex-start;
+      background: #d1f0f8;
+      border-bottom-left-radius: 4px;
+    }
+
+   .profile-icon {
+      width: 50px;
+      height: 50px;
+      font-size: 30px;
+      border-radius: 50%;
+      background-color: #ffffff90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px auto;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+    }
+	
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="chat-box">
+     <div class="profile-icon">🧸</div>
+    <h2>User A</h2>
+    <textarea id="inputA" placeholder="Type message..."></textarea>
+    <button onclick="send('A')">Send to B</button>
+    <div class="messages" id="messagesA"></div>
+  </div>
+
+  <div class="chat-box">
+    <div class="profile-icon">🦊</div>
+    <h2>User B</h2>
+    <textarea id="inputB" placeholder="Type message..."></textarea>
+    <button onclick="send('B')">Send to A</button>
+    <div class="messages" id="messagesB"></div>
+  </div>
+
+  <script>
+    const emojiStart = 0x1F300;
+    const emojiMap = Array.from({ length: 256 }, (_, i) => String.fromCodePoint(emojiStart + i));
+    const emojiToChar = {};
+    emojiMap.forEach((emoji, i) => emojiToChar[emoji] = String.fromCharCode(i));
+
+    function encrypt(text) {
+      return Array.from(text).map(c => emojiMap[c.charCodeAt(0)]).join('');
+    }
+
+    function decrypt(emojiText) {
+      return Array.from(emojiText).map(e => emojiToChar[e] || '?').join('');
+    }
+
+    function send(sender) {
+      const receiver = sender === 'A' ? 'B' : 'A';
+      const input = document.getElementById('input' + sender);
+      const message = input.value.trim();
+      if (!message) return;
+
+      const encrypted = encrypt(message);
+      const senderBox = document.getElementById('messages' + sender);
+      const receiverBox = document.getElementById('messages' + receiver);
+
+      // Sender message
+      const msgSent = document.createElement('div');
+      msgSent.className = 'msg sent';
+      msgSent.textContent = "You: " + message;
+      senderBox.appendChild(msgSent);
+
+      // Receiver message
+      const msgRecv = document.createElement('div');
+      msgRecv.className = 'msg received';
+      const encryptedSpan = document.createElement('span');
+      encryptedSpan.textContent = encrypted;
+
+      msgRecv.innerHTML = "Encrypted: ";
+      msgRecv.appendChild(encryptedSpan);
+
+      const decryptBtn = document.createElement('button');
+      decryptBtn.className = 'decrypt-btn';
+      decryptBtn.textContent = '🔓 Decrypt';
+      decryptBtn.onclick = () => {
+        const decrypted = decrypt(encryptedSpan.textContent);
+        msgRecv.innerHTML = "" + decrypted;
+      };
+
+      msgRecv.appendChild(document.createElement('br'));
+      msgRecv.appendChild(decryptBtn);
+
+      receiverBox.appendChild(msgRecv);
+      input.value = '';
+    }
+  </script>
+
+</body>
+</html>

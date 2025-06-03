@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Encrypted Emoji Chat App (RSA)</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: space-around;
+      padding: 30px;
+      background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+      min-height: 100vh;
+    }
+
+    .chat-box {
+      width: 45%;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    h2 {
+      text-align: center;
+      margin-top: 0;
+      color: #34495e;
+    }
+
+    textarea {
+      width: 100%;
+      height: 60px;
+      padding: 12px;
+      font-size: 14px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      resize: none;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .decrypt-btn {
+      margin-top: 8px;
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      color: #fff;
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 6px;
+    }
+
+    .messages {
+      margin-top: 15px;
+      height: 280px;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.6);
+      padding: 12px;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 20px;
+      word-wrap: break-word;
+      transition: 0.3s;
+    }
+
+    .msg:hover {
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .sent {
+      align-self: flex-end;
+      background: #daf5dc;
+      border-bottom-right-radius: 4px;
+    }
+
+    .received {
+      align-self: flex-start;
+      background: #d1f0f8;
+      border-bottom-left-radius: 4px;
+    }
+
+   .profile-icon {
+      width: 50px;
+      height: 50px;
+      font-size: 30px;
+      border-radius: 50%;
+      background-color: #ffffff90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px auto;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.15);
+    }
+	
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="chat-box">
+     <div class="profile-icon">🧸</div>
+    <h2>User A</h2>
+    <textarea id="inputA" placeholder="Type message..."></textarea>
+    <button onclick="send('A')">Send to B</button>
+    <div class="messages" id="messagesA"></div>
+  </div>
+
+  <div class="chat-box">
+    <div class="profile-icon">🦊</div>
+    <h2>User B</h2>
+    <textarea id="inputB" placeholder="Type message..."></textarea>
+    <button onclick="send('B')">Send to A</button>
+    <div class="messages" id="messagesB"></div>
+  </div>
+
+  <script>
+    let publicKeyA, privateKeyA, publicKeyB, privateKeyB;
+
+    // Generate RSA keys for both users
+    async function generateKeys() {
+      const keyPairA = await crypto.subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]), // 65537
+          hash: "SHA-256"
+        },
+        true,
+        ["encrypt", "decrypt"]
+      );
+      publicKeyA = keyPairA.publicKey;
+      privateKeyA = keyPairA.privateKey;
+
+      const keyPairB = await crypto.subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]), // 65537
+          hash: "SHA-256"
+        },
+        true,
+        ["encrypt", "decrypt"]
+      );
+      publicKeyB = keyPairB.publicKey;
+      privateKeyB = keyPairB.privateKey;
+    }
+
+    // Encrypt with RSA and convert to emojis
+    async function encryptRSA(message, publicKey) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(message);
+      const encrypted = await crypto.subtle.encrypt(
+        { name: "RSA-OAEP" },
+        publicKey,
+        data
+      );
+      
+      // Convert the encrypted data into emoji string
+      const emojiText = Array.from(new Uint8Array(encrypted))
+        .map(byte => String.fromCodePoint(0x1F300 + byte)) // Convert each byte to an emoji
+        .join('');
+        
+      return emojiText;
+    }
+
+    // Decrypt RSA emoji string back to original message
+    async function decryptRSA(emojiText, privateKey) {
+      // Convert emoji back to byte array
+      const byteArray = Array.from(emojiText)
+        .map(e => e.codePointAt(0) - 0x1F300); // Convert emoji back to byte value
+
+      const encryptedData = new Uint8Array(byteArray).buffer;
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "RSA-OAEP" },
+        privateKey,
+        encryptedData
+      );
+      
+      const decoder = new TextDecoder();
+      return decoder.decode(decrypted);
+    }
+
+    // Send the message from one user to another
+    async function send(sender) {
+      const receiver = sender === 'A' ? 'B' : 'A';
+      const input = document.getElementById('input' + sender);
+      const message = input.value.trim();
+      if (!message) return;
+
+      const senderBox = document.getElementById('messages' + sender);
+      const receiverBox = document.getElementById('messages' + receiver);
+
+      // Sender message
+      const msgSent = document.createElement('div');
+      msgSent.className = 'msg sent';
+      msgSent.textContent = "You: " + message;
+      senderBox.appendChild(msgSent);
+
+      // Encrypt message for the receiver (convert to emojis)
+      const encryptedMessage = await encryptRSA(message, sender === 'A' ? publicKeyB : publicKeyA);
+
+      // Receiver message (encrypted in emoji format)
+      const msgRecv = document.createElement('div');
+      msgRecv.className = 'msg received';
+      const encryptedSpan = document.createElement('span');
+      encryptedSpan.textContent = "Encrypted: " + encryptedMessage;
+
+      msgRecv.appendChild(encryptedSpan);
+
+      const decryptBtn = document.createElement('button');
+      decryptBtn.className = 'decrypt-btn';
+      decryptBtn.textContent = '🔓 Decrypt';
+      decryptBtn.onclick = async () => {
+        const decryptedMessage = await decryptRSA(encryptedMessage, sender === 'A' ? privateKeyB : privateKeyA);
+        msgRecv.innerHTML = " " + decryptedMessage;
+      };
+
+      msgRecv.appendChild(document.createElement('br'));
+      msgRecv.appendChild(decryptBtn);
+
+      receiverBox.appendChild(msgRecv);
+      input.value = '';
+    }
+
+    // Generate RSA keys on page load
+    generateKeys();
+  </script>
+
+</body>
+</html>
